@@ -174,3 +174,18 @@ Agent_a/
     ├── agent.py          ← LangGraph ReAct loop
     └── config_loader.py  ← YAML → typed dataclasses
 ```
+
+# Install in editable / dev mode (recommended while developing)
+pip install -e ".[dev]"
+
+# Run from anywhere after install
+worker-agent
+worker-agent --transport sse --port 8001
+
+# Build a distributable wheel + sdist
+pip install build
+python -m build
+
+# Publish to PyPI
+pip install twine
+twine upload dist/*

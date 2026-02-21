@@ -103,7 +103,17 @@ def parse_args() -> argparse.Namespace:
     return parser.parse_args()
 
 
-if __name__ == "__main__":
+def _cli_entry() -> None:
+    """
+    Console-script entry point installed by setup.py / pyproject.toml.
+
+    After ``pip install -e .`` (or a regular install) you can start the
+    worker agent from any shell with::
+
+        worker-agent                          # stdio transport (default)
+        worker-agent --transport sse          # HTTP/SSE transport
+        worker-agent --transport sse --port 9000 --host 127.0.0.1
+    """
     args = parse_args()
 
     logger.info(
@@ -117,3 +127,7 @@ if __name__ == "__main__":
         mcp.run(transport="sse", host=args.host, port=args.port)
     else:
         mcp.run(transport="stdio")
+
+
+if __name__ == "__main__":
+    _cli_entry()

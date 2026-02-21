@@ -14,3 +14,5 @@ langchain-mcp-adapters>=0.1.0
 
 # Config / utilities
 pyyaml>=6.0
+python-dotenv>=1.0.0
+mcp_server_shell>=0.1.0
