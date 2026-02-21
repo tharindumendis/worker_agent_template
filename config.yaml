@@ -1,0 +1,44 @@
+# =============================================================================
+# Worker Agent Configuration
+# Clone this file to create a new specialized worker — no code changes needed.
+# =============================================================================
+
+agent:
+  name: "WorkerAgent"
+  version: "1.0.0"
+  system_prompt: |
+    You are a diligent, autonomous worker agent. 
+    Your job is to complete the sub-task given to you as precisely and efficiently as possible.
+    You have access to a set of tools. Think step-by-step, use the tools you need, 
+    self-correct on errors, and only respond once the task is fully complete.
+    Do NOT ask for clarification — make your best effort with the information provided.
+
+model:
+  provider: "ollama"
+  model_name: "qwen3-coder:480b-cloud" # Change to any model available in your Ollama instance
+  temperature: 0.0
+  base_url: "http://localhost:11434"
+
+# MCP Servers this worker connects TO as a CLIENT to get its tools.
+# Each entry starts a subprocess and connects via stdio.
+mcp_clients:
+  # - name: "filesystem-server"
+  #   command: "npx"
+  #   args: ["-y", "@modelcontextprotocol/server-filesystem", "C:/Users/Dev/Project"]
+  #
+  # - name: "brave-search"
+  #   command: "npx"
+  #   args: ["-y", "@modelcontextprotocol/server-brave-search"]
+  #
+  - name: "shell_execution"
+    command: "D:\\DEV\\ML\\Seeker\\.venv\\Scripts\\python.exe"
+    args: ["-m", "mcp_server_shell", "--shell", "powershell"]
+    env:
+      CWD: "D:\\DEV\\ML\\Seeker"
+
+# How this worker exposes ITSELF as an MCP server.
+server:
+  name: "worker-agent-server"
+  port: 8001 # HTTP/SSE transport port
+  transport: "stdio" # "stdio" or "sse"
+  host: "0.0.0.0"
