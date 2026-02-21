@@ -21,7 +21,28 @@ build-backend = "setuptools.build_meta"
 name            = "worker-agent"
 requires-python = ">=3.10"
 dynamic         = ["version", "description", "readme", "license", "authors",
-                   "keywords", "classifiers", "dependencies", "urls"]
+                   "keywords", "classifiers", "dependencies"]
+
+# Console script installed into the venv's Scripts/ directory
+[project.scripts]
+worker-agent = "main:_cli_entry"
+
+# Optional dependency groups
+[project.optional-dependencies]
+dev = [
+    "pytest>=7.0",
+    "pytest-asyncio>=0.23",
+    "pytest-cov>=4.0",
+    "ruff>=0.4",
+    "mypy>=1.8",
+    "types-PyYAML",
+    "pre-commit>=3.0",
+]
+release = [
+    "build>=1.0",
+    "twine>=5.0",
+]
+
 
 # ---------------------------------------------------------------------------
 # Ruff — linting + formatting (replaces flake8, isort, pyupgrade, etc.)

@@ -210,6 +210,9 @@ setup(
     packages=find_packages(
         exclude=["tests", "tests.*", "*.egg-info", ".venv", ".venv.*"]
     ),
+    # Bare .py modules at project root (not inside a package directory)
+    # main.py must be installed for the 'worker-agent' console script to work
+    py_modules=["main", "sample_main_agent"],
     package_data=PACKAGE_DATA,
     include_package_data=True,   # also picks up files listed in MANIFEST.in
     # ── Python / pip requirements ─────────────────────────────────────────
