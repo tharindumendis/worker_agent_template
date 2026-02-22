@@ -52,6 +52,12 @@ target-version = "py310"
 line-length    = 100
 src            = [".", "core"]
 
+[tool.setuptools]
+include-package-data = true
+
+[tool.setuptools.package-data]
+"*" = ["*.yaml", "*.yml"]
+
 [tool.ruff.lint]
 select = [
     "E",   # pycodestyle errors

@@ -65,22 +65,42 @@ class AppConfig:
 
 def load_config(config_path: Optional[str] = None) -> AppConfig:
     """
-    Load config.yaml from `config_path` (defaults to <project_root>/config.yaml).
-    Returns a fully populated AppConfig dataclass.
+    Priority: 
+    1. config_path (passed to function)
+    2. WORKER_AGENT_CONFIG (environment variable)
+    3. ./config.yaml (Current Working Directory)
+    4. ../config.yaml (Package Root fallback)
     """
-    if config_path is None:
-        # Walk up from this file to find config.yaml at project root
-        root = Path(__file__).parent.parent
-        config_path = root / "config.yaml"
+    
+    # Define potential locations
+    env_path = os.getenv("WORKER_AGENT_CONFIG")
+    cwd_path = Path.cwd() / "config.yaml"
+    package_root_path = Path(__file__).parent.parent / "config.yaml"
 
-    config_path = Path(config_path)
-    if not config_path.exists():
+    # Select the first one that exists
+    if config_path:
+        final_path = Path(config_path)
+    elif env_path:
+        final_path = Path(env_path)
+    elif cwd_path.exists():
+        final_path = cwd_path
+    else:
+        final_path = package_root_path
+
+    # Final check
+    if not final_path.exists():
         raise FileNotFoundError(
-            f"config.yaml not found at '{config_path}'. "
-            "Copy config.yaml to the project root and customize it."
+            f"Config file not found. Checked:\n"
+            f"- Explicit path: {config_path}\n"
+            f"- Env Var (WORKER_AGENT_CONFIG): {env_path}\n"
+            f"- Current Directory: {cwd_path}\n"
+            f"- Package Fallback: {package_root_path}\n"
+            f"Please ensure a 'config.yaml' exists in your current folder."
         )
 
-    with open(config_path, "r", encoding="utf-8") as f:
+    print(f"[*] Using config: {final_path.absolute()}")
+
+    with open(final_path, "r", encoding="utf-8") as f:
         raw = yaml.safe_load(f) or {}
 
     # --- Agent ---
