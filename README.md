@@ -76,7 +76,9 @@ agent:
   system_prompt: "You are an expert at organizing and refactoring local files."
 
 model:
+  provider: "ollama" # Supported: "ollama", "openai", "gemini"
   model_name: "llama3.2" # any model loaded in Ollama
+  # api_key: "your-api-key-here" # Uncomment if using openai or gemini (or set API_KEY env var)
 
 mcp_clients:
   - name: "filesystem-server"
@@ -146,7 +148,9 @@ agent:
   description: "A research agent to summarize technical documentation found on the web."
   system_prompt: "You specialize in deep web research and summarizing technical docs."
 model:
-  model_name: "mistral"
+  provider: "openai"
+  model_name: "gpt-4o-mini"
+  api_key: "sk-..."
 mcp_clients:
   - name: "brave-search"
     command: "npx"
