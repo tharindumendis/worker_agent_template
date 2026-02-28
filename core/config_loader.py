@@ -48,6 +48,7 @@ class ServerConfig:
 class AgentConfig:
     name: str = "WorkerAgent"
     version: str = "1.0.0"
+    description: str = "Run the Worker Agent's internal ReAct loop to complete a sub-task."
     system_prompt: str = "You are a helpful worker agent."
 
 
@@ -108,6 +109,7 @@ def load_config(config_path: Optional[str] = None) -> AppConfig:
     agent = AgentConfig(
         name=agent_raw.get("name", "WorkerAgent"),
         version=agent_raw.get("version", "1.0.0"),
+        description=agent_raw.get("description", "Run the Worker Agent's internal ReAct loop to complete a sub-task."),
         system_prompt=agent_raw.get("system_prompt", "You are a helpful worker agent."),
     )
 

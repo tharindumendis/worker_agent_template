@@ -26,7 +26,7 @@ import asyncio
 import logging
 import sys
 
-from mcp.server.fastmcp import FastMCP
+from mcp.server.fastmcp import FastMCP, Context
 
 from core.agent import run_agent
 from core.config_loader import load_config
@@ -55,11 +55,9 @@ mcp = FastMCP(config.server.name)
 # ---------------------------------------------------------------------------
 # Tool: execute_task
 # ---------------------------------------------------------------------------
-@mcp.tool()
-async def execute_task(instruction: str) -> str:
+@mcp.tool(description=config.agent.description)
+async def execute_task(ctx :Context ,instruction: str) -> str:
     """
-    Run the Worker Agent's internal ReAct loop to complete a sub-task.
-
     Args:
         instruction: A clear, self-contained description of the task to perform.
 
@@ -70,11 +68,13 @@ async def execute_task(instruction: str) -> str:
     from core.job_logger import LOGS_DIR
     logger.info("Received task: %s", instruction[:200])
     try:
+        await ctx.info(f"Executing task: {instruction[:200]}...")
         result = await run_agent(task=instruction, config=config)
         logger.info("Task finished successfully.")
         return result
     except Exception as exc:
         logger.exception("Agent failed with error: %s", exc)
+        await ctx.error(f"Agent failed with error: {exc}")
         return f"ERROR: The agent encountered an unhandled exception: {exc}"
 
 

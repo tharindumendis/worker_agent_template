@@ -6,6 +6,15 @@
 agent:
   name: "WorkerAgent"
   version: "1.0.0"
+  description: |
+    Run the Worker Agent's internal ReAct loop to complete a sub-task.
+    Args:
+        instruction: A clear, self-contained description of the task to perform.
+
+    Returns:
+        The final result produced by the agent after it has finished reasoning
+        and using its tools. A log file path is appended for traceability.
+
   system_prompt: |
     You are a diligent, autonomous worker agent. 
     Your job is to complete the sub-task given to you as precisely and efficiently as possible.
