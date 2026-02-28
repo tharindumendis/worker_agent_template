@@ -179,10 +179,39 @@ In your Main Agent's MCP config:
 }
 ```
 
-Or run it directly with `uvx` if the package is published:
+### Dynamic Configuration (Multiple Workers)
+
+If your Main Agent needs multiple specialized workers, you do not need to clone the entire repository multiple times. You can create several configuration YAML files (e.g., `web_worker.yaml`, `file_worker.yaml`) and pass them dynamically using the `WORKER_AGENT_CONFIG` environment variable.
+
+```json
+{
+  "mcpServers": {
+    "web-worker": {
+      "command": "uv",
+      "args": ["--directory", "D:/DEV/mcp/Agent_a", "run", "worker-agent"],
+      "env": {
+        "WORKER_AGENT_CONFIG": "D:/DEV/mcp/Agent_a/web_worker.yaml"
+      }
+    },
+    "file-worker": {
+      "command": "uv",
+      "args": ["--directory", "D:/DEV/mcp/Agent_a", "run", "worker-agent"],
+      "env": {
+        "WORKER_AGENT_CONFIG": "D:/DEV/mcp/Agent_a/file_worker.yaml"
+      }
+    }
+  }
+}
+```
+
+Or run it directly with `uvx` and an environment variable if the package is published:
 
 ```bash
-uvx worker-agent
+# Linux/macOS
+WORKER_AGENT_CONFIG="./custom_config.yaml" uvx worker-agent
+
+# Windows (PowerShell)
+$env:WORKER_AGENT_CONFIG="./custom_config.yaml"; uvx worker-agent
 ```
 
 The worker exposes one tool:

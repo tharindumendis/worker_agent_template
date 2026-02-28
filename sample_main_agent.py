@@ -7,9 +7,10 @@ discovers its `execute_task` tool dynamically, and drives
 it through a LangGraph ReAct loop.
 
 Usage:
-    python main_agent.py
-    python main_agent.py --task "List all .py files in D:/DEV/mcp/Agent_a"
-    python main_agent.py --model qwen3-coder:480b-cloud
+    python sample_main_agent.py
+    python sample_main_agent.py --task "List all .py files in D:/DEV/mcp/Agent_a"
+    python sample_main_agent.py --model qwen3-coder:480b-cloud
+    python sample_main_agent.py --config "D:/DEV/mcp/Agent_a/file_worker.yaml"
 """
 
 from __future__ import annotations
@@ -24,6 +25,7 @@ warnings.filterwarnings("ignore", category=DeprecationWarning)
 # Force UTF-8 output on Windows so emoji/unicode don't crash
 if sys.stdout.encoding != "utf-8":
     sys.stdout.reconfigure(encoding="utf-8", errors="replace")
+import os
 from pathlib import Path
 
 from langchain_core.messages import HumanMessage, SystemMessage, AIMessage, ToolMessage
@@ -95,7 +97,7 @@ def _print_event(event: dict) -> None:
 # Core async runner
 # ---------------------------------------------------------------------------
 
-async def run_main_agent(task: str, model_name: str) -> str:
+async def run_main_agent(task: str, model_name: str, config_path: str | None = None) -> str:
     """
     1. Spawn Worker Agent as MCP subprocess.
     2. Discover its tools (execute_task).
@@ -104,9 +106,17 @@ async def run_main_agent(task: str, model_name: str) -> str:
     """
     print(f"\n\033[90m[*] Spawning Worker Agent subprocess...\033[0m")
 
+    # Set up environment variables to pass the custom config
+    env = os.environ.copy()
+    if config_path:
+        abs_config = str(Path(config_path).absolute())
+        env["WORKER_AGENT_CONFIG"] = abs_config
+        print(f"\033[90m[*] Passing dynamically configured config: {abs_config}\033[0m")
+
     worker_params = StdioServerParameters(
         command=WORKER_PYTHON,
         args=[WORKER_SCRIPT],
+        env=env,
     )
 
     async with stdio_client(worker_params) as (read, write):
@@ -154,7 +164,7 @@ async def run_main_agent(task: str, model_name: str) -> str:
 # Interactive CLI
 # ---------------------------------------------------------------------------
 
-async def interactive_loop(model_name: str) -> None:
+async def interactive_loop(model_name: str, config_path: str | None = None) -> None:
     print("\n" + "=" * 60)
     print("  [Main Agent] <-> [Worker Agent]  (MCP)  |  Test Console")
     print("=" * 60)
@@ -176,7 +186,7 @@ async def interactive_loop(model_name: str) -> None:
             break
 
         try:
-            result = await run_main_agent(task, model_name)
+            result = await run_main_agent(task, model_name, config_path)
             print("\n" + "-" * 60)
             print(f"\n[OK] \033[1mFinal Answer:\033[0m\n{result}")
             print("-" * 60)
@@ -205,6 +215,12 @@ def parse_args() -> argparse.Namespace:
         default="qwen3-coder:480b-cloud",
         help="Ollama model name for the Main Agent (default: qwen3-coder:480b-cloud)",
     )
+    p.add_argument(
+        "--config", "-c",
+        type=str,
+        default=None,
+        help="Path to a custom config.yaml file to pass to the Worker Agent",
+    )
     return p.parse_args()
 
 
@@ -213,9 +229,9 @@ if __name__ == "__main__":
 
     if args.task:
         # Single-shot non-interactive mode
-        result = asyncio.run(run_main_agent(args.task, args.model))
+        result = asyncio.run(run_main_agent(args.task, args.model, args.config))
         print("\n" + "-" * 60)
         print(f"\n[OK] Final Answer:\n{result}")
     else:
         # Interactive REPL
-        asyncio.run(interactive_loop(args.model))
+        asyncio.run(interactive_loop(args.model, args.config))
