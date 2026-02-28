@@ -30,6 +30,14 @@ from pathlib import Path
 
 from langchain_core.messages import HumanMessage, SystemMessage, AIMessage, ToolMessage
 from langchain_ollama import ChatOllama
+try:
+    from langchain_openai import ChatOpenAI
+except ImportError:
+    pass
+try:
+    from langchain_google_genai import ChatGoogleGenerativeAI
+except ImportError:
+    pass
 from langgraph.prebuilt import create_react_agent
 from mcp import ClientSession, StdioServerParameters
 from mcp.client.stdio import stdio_client
@@ -97,7 +105,14 @@ def _print_event(event: dict) -> None:
 # Core async runner
 # ---------------------------------------------------------------------------
 
-async def run_main_agent(task: str, model_name: str, config_path: str | None = None) -> str:
+async def run_main_agent(
+    task: str, 
+    model_name: str, 
+    provider: str = "ollama", 
+    api_key: str | None = None,
+    base_url: str | None = None,
+    config_path: str | None = None
+) -> str:
     """
     1. Spawn Worker Agent as MCP subprocess.
     2. Discover its tools (execute_task).
@@ -132,11 +147,26 @@ async def run_main_agent(task: str, model_name: str, config_path: str | None = N
                 return "[ERROR] Worker Agent exposed no tools. Check that main.py is running correctly."
 
             # Build Main Agent's LLM + ReAct graph
-            llm = ChatOllama(
-                model=model_name,
-                temperature=0.0,
-                base_url="http://localhost:11434",
-            )
+            provider_lc = provider.lower()
+            if provider_lc == "openai":
+                llm = ChatOpenAI(
+                    model=model_name,
+                    temperature=0.0,
+                    api_key=api_key,
+                    base_url=base_url,
+                )
+            elif provider_lc == "gemini":
+                llm = ChatGoogleGenerativeAI(
+                    model=model_name,
+                    temperature=0.0,
+                    api_key=api_key,
+                )
+            else:
+                llm = ChatOllama(
+                    model=model_name,
+                    temperature=0.0,
+                    base_url=base_url or "http://localhost:11434",
+                )
             graph = create_react_agent(model=llm, tools=tools)
 
             messages = [
@@ -164,7 +194,13 @@ async def run_main_agent(task: str, model_name: str, config_path: str | None = N
 # Interactive CLI
 # ---------------------------------------------------------------------------
 
-async def interactive_loop(model_name: str, config_path: str | None = None) -> None:
+async def interactive_loop(
+    model_name: str, 
+    provider: str = "ollama",
+    api_key: str | None = None,
+    base_url: str | None = None,
+    config_path: str | None = None
+) -> None:
     print("\n" + "=" * 60)
     print("  [Main Agent] <-> [Worker Agent]  (MCP)  |  Test Console")
     print("=" * 60)
@@ -186,7 +222,14 @@ async def interactive_loop(model_name: str, config_path: str | None = None) -> N
             break
 
         try:
-            result = await run_main_agent(task, model_name, config_path)
+            result = await run_main_agent(
+                task, 
+                model_name=model_name, 
+                provider=provider, 
+                api_key=api_key, 
+                base_url=base_url, 
+                config_path=config_path
+            )
             print("\n" + "-" * 60)
             print(f"\n[OK] \033[1mFinal Answer:\033[0m\n{result}")
             print("-" * 60)
@@ -216,6 +259,24 @@ def parse_args() -> argparse.Namespace:
         help="Ollama model name for the Main Agent (default: qwen3-coder:480b-cloud)",
     )
     p.add_argument(
+        "--provider", "-p",
+        type=str,
+        default="ollama",
+        help="LLM provider: ollama, openai, or gemini (default: ollama)",
+    )
+    p.add_argument(
+        "--api-key",
+        type=str,
+        default=None,
+        help="API key for the selected provider (if applicable)",
+    )
+    p.add_argument(
+        "--base-url",
+        type=str,
+        default=None,
+        help="Base URL for the selected provider (if applicable)",
+    )
+    p.add_argument(
         "--config", "-c",
         type=str,
         default=None,
@@ -229,9 +290,22 @@ if __name__ == "__main__":
 
     if args.task:
         # Single-shot non-interactive mode
-        result = asyncio.run(run_main_agent(args.task, args.model, args.config))
+        result = asyncio.run(run_main_agent(
+            args.task, 
+            model_name=args.model, 
+            provider=args.provider, 
+            api_key=args.api_key, 
+            base_url=args.base_url, 
+            config_path=args.config
+        ))
         print("\n" + "-" * 60)
         print(f"\n[OK] Final Answer:\n{result}")
     else:
         # Interactive REPL
-        asyncio.run(interactive_loop(args.model, args.config))
+        asyncio.run(interactive_loop(
+            model_name=args.model, 
+            provider=args.provider, 
+            api_key=args.api_key, 
+            base_url=args.base_url, 
+            config_path=args.config
+        ))

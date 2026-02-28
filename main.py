@@ -55,7 +55,16 @@ mcp = FastMCP(config.server.name)
 # ---------------------------------------------------------------------------
 # Tool: execute_task
 # ---------------------------------------------------------------------------
-@mcp.tool(description=config.agent.description)
+EXECUTE_TASK_DESC = f"""{config.agent.description}
+
+This tool runs the Worker Agent's internal ReAct loop to complete a sub-task.
+Args:
+    instruction: A clear, self-contained description of the task to perform.
+Returns:
+    The final result produced by the agent.
+"""
+
+@mcp.tool(description=EXECUTE_TASK_DESC)
 async def execute_task(ctx :Context ,instruction: str) -> str:
     from core.job_logger import LOGS_DIR
     logger.info("Received task: %s", instruction[:200])

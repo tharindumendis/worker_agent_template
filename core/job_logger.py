@@ -23,11 +23,10 @@ from __future__ import annotations
 
 import json
 import logging
-import os
 import uuid
 from datetime import datetime
 from pathlib import Path
-from typing import Any, Optional
+from typing import Any
 
 # Root logs directory (sits next to main.py)
 _PROJECT_ROOT = Path(__file__).parent.parent
@@ -73,10 +72,10 @@ class JobLogger:
         self,
         step_type: str,
         title: str = "",
-        details: Optional[dict] = None,
+        details: dict | None = None,
         output: Any = None,
-        success: Optional[bool] = None,
-        error: Optional[str] = None,
+        success: bool | None = None,
+        error: str | None = None,
     ) -> None:
         """
         Append one step to the log.
@@ -106,8 +105,8 @@ class JobLogger:
         block = [
             "",
             f"{'─' * 72}",
-            f"STEP {self._step_counter:02d} | {ts} | {badge} {step_type.upper()}" +
-            (f" | {title}" if title else ""),
+            f"STEP {self._step_counter:02d} | {ts} | {badge} {step_type.upper()}"
+            + (f" | {title}" if title else ""),
             f"{'─' * 72}",
         ]
 
@@ -129,7 +128,7 @@ class JobLogger:
 
         self._append_lines(block)
 
-    def finish(self, final_answer: str = "", success: bool = True) -> None:
+    def finish(self, final_answer: Any = "", success: bool = True) -> None:
         """Write the job footer and flush the file."""
         ended_at = datetime.now()
         duration = (ended_at - self.started_at).total_seconds()
@@ -138,9 +137,10 @@ class JobLogger:
         footer = [
             "",
             "=" * 72,
-            f"FINAL ANSWER:",
+            "FINAL ANSWER:",
         ]
-        for line in (final_answer or "(no output)").splitlines():
+        ans_str = final_answer if isinstance(final_answer, str) else _pretty(final_answer)
+        for line in (ans_str or "(no output)").splitlines():
             footer.append(f"  {line}")
         footer += [
             "",
@@ -164,8 +164,8 @@ class JobLogger:
     def _write_header(self) -> None:
         header = [
             "=" * 72,
-            f"  WORKER AGENT JOB LOG",
-            f"=" * 72,
+            "  WORKER AGENT JOB LOG",
+            "=" * 72,
             f"  JOB ID  : {self.job_id}",
             f"  AGENT   : {self.agent_name}",
             f"  STARTED : {self.started_at.strftime('%Y-%m-%d %H:%M:%S')}",

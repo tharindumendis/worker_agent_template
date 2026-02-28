@@ -18,7 +18,6 @@ import logging
 import traceback
 import warnings
 from contextlib import AsyncExitStack
-from typing import List, Optional
 
 # Suppress LangGraph deprecation noise
 warnings.filterwarnings("ignore", category=DeprecationWarning)
@@ -31,12 +30,21 @@ from langchain_core.messages import (
 )
 from langchain_core.tools import BaseTool
 from langchain_ollama import ChatOllama
+
+try:
+    from langchain_openai import ChatOpenAI
+except ImportError:
+    pass
+try:
+    from langchain_google_genai import ChatGoogleGenerativeAI
+except ImportError:
+    pass
+from langchain_mcp_adapters.tools import load_mcp_tools
 from langgraph.prebuilt import create_react_agent
 from mcp import ClientSession, StdioServerParameters
 from mcp.client.stdio import stdio_client
-from langchain_mcp_adapters.tools import load_mcp_tools
 
-from core.config_loader import AppConfig, MCPClientConfig
+from core.config_loader import AppConfig
 from core.job_logger import JobLogger
 
 logger = logging.getLogger(__name__)
@@ -45,6 +53,7 @@ logger = logging.getLogger(__name__)
 # ---------------------------------------------------------------------------
 # Internal helpers
 # ---------------------------------------------------------------------------
+
 
 def _tool_input(tool_call: dict) -> dict:
     """Extract input args from a LangChain tool call dict."""
@@ -57,9 +66,20 @@ def _truncate(text: str, max_chars: int = 800) -> str:
     return text[:max_chars] + f"\n... [{len(text) - max_chars} chars truncated]"
 
 
+def _unwrap_exception(exc: BaseException) -> BaseException:
+    """Recursively unwrap ExceptionGroups to find the underlying root cause."""
+    # Check if this is an ExceptionGroup (Python 3.11+ built-in)
+    if hasattr(exc, "exceptions") and exc.exceptions:
+        # We recursively unwrap the first exception in the group.
+        # This assumes the most interesting error is the first one (often true for simple TaskGroups).
+        return _unwrap_exception(exc.exceptions[0])
+    return exc
+
+
 # ---------------------------------------------------------------------------
 # Main entry-point — called by main.py for every execute_task() invocation
 # ---------------------------------------------------------------------------
+
 
 async def run_agent(task: str, config: AppConfig) -> str:
     """
@@ -79,7 +99,7 @@ async def run_agent(task: str, config: AppConfig) -> str:
     jl = JobLogger(task=task, agent_name=config.agent.name)
     logger.info("[%s] Job %s started | task: %s", config.agent.name, jl.job_id, task[:80])
 
-    all_tools: List[BaseTool] = []
+    all_tools: list[BaseTool] = []
     final_answer = ""
     success = False
 
@@ -95,9 +115,7 @@ async def run_agent(task: str, config: AppConfig) -> str:
                     env=client_cfg.env or None,
                 )
                 try:
-                    read, write = await stack.enter_async_context(
-                        stdio_client(server_params)
-                    )
+                    read, write = await stack.enter_async_context(stdio_client(server_params))
                     session: ClientSession = await stack.enter_async_context(
                         ClientSession(read, write)
                     )
@@ -133,25 +151,44 @@ async def run_agent(task: str, config: AppConfig) -> str:
                 jl.log_step(
                     step_type="INFO",
                     title="No tools available",
-                    details={"note": "Running with LLM only (no MCP tools configured or all failed to connect)."},
+                    details={
+                        "note": "Running with LLM only (no MCP tools configured or all failed to connect)."
+                    },
                 )
 
             # ----------------------------------------------------------------
             # PHASE 2 — Build the ReAct agent
             # ----------------------------------------------------------------
             tool_descriptions = "\n".join(
-                f"  - {t.name}: {getattr(t, 'description', 'no description')}"
-                for t in all_tools
+                f"  - {t.name}: {getattr(t, 'description', 'no description')}" for t in all_tools
             )
             enriched_prompt = config.agent.system_prompt + (
                 f"\n\nAvailable tools:\n{tool_descriptions}" if tool_descriptions else ""
             )
 
-            llm = ChatOllama(
-                model=config.model.model_name,
-                temperature=config.model.temperature,
-                base_url=config.model.base_url,
-            )
+            provider = config.model.provider.lower()
+            if provider == "openai":
+                llm = ChatOpenAI(
+                    model=config.model.model_name,
+                    temperature=config.model.temperature,
+                    api_key=config.model.api_key,
+                    base_url=config.model.base_url
+                    if config.model.base_url != "http://localhost:11434"
+                    else None,
+                )
+            elif provider == "gemini":
+                llm = ChatGoogleGenerativeAI(
+                    model=config.model.model_name,
+                    temperature=config.model.temperature,
+                    api_key=config.model.api_key,
+                )
+            else:
+                # default to ollama
+                llm = ChatOllama(
+                    model=config.model.model_name,
+                    temperature=config.model.temperature,
+                    base_url=config.model.base_url,
+                )
             graph = create_react_agent(model=llm, tools=all_tools)
 
             jl.log_step(
@@ -189,12 +226,23 @@ async def run_agent(task: str, config: AppConfig) -> str:
                     # Log the text part of the LLM response (if any)
                     if last_msg.content:
                         _llm_step += 1
+
+                        # Handle list-based content (e.g., from Gemini's multimodal format)
+                        content_val = last_msg.content
+                        if isinstance(content_val, list):
+                            content_val = "\n".join(
+                                b.get("text", str(b)) if isinstance(b, dict) else str(b)
+                                for b in content_val
+                            )
+                        elif not isinstance(content_val, str):
+                            content_val = str(content_val)
+
                         jl.log_step(
                             step_type="LLM_RESPONSE",
                             title=f"LLM turn {_llm_step}",
-                            output=_truncate(str(last_msg.content)),
+                            output=_truncate(content_val),
                         )
-                        final_answer = last_msg.content
+                        final_answer = content_val
 
                     # Log each tool call the LLM decided to make
                     for tc in tool_calls:
@@ -233,17 +281,55 @@ async def run_agent(task: str, config: AppConfig) -> str:
             # ── Done ──────────────────────────────────────────────────────
             success = True
 
-    except Exception as exc:
-        tb = traceback.format_exc()
-        jl.log_step(
-            step_type="FATAL_ERROR",
-            title=type(exc).__name__,
-            error=f"{exc}\n\n{tb}",
-            success=False,
-        )
-        logger.exception("[%s] Job %s failed with unhandled exception", config.agent.name, jl.job_id)
-        final_answer = f"ERROR: {exc}"
-        success = False
+    except BaseException as root_exc:
+        # We catch BaseException so we can catch BaseExceptionGroup
+        exc = _unwrap_exception(root_exc)
+        tb = "".join(traceback.format_exception(type(exc), exc, exc.__traceback__))
+
+        # Don't log normal cancellations as fatal errors
+        if isinstance(exc, (asyncio.CancelledError, KeyboardInterrupt)):
+            logger.warning(
+                "[%s] Job %s was cancelled or interrupted.", config.agent.name, jl.job_id
+            )
+            final_answer = "ERROR: Agent task was cancelled or interrupted."
+            success = False
+
+        # Gracefully log familiar LLM provider errors without tracebacks
+        elif type(exc).__name__ in (
+            "RateLimitError",
+            "AuthenticationError",
+            "APIConnectionError",
+            "APIError",
+            "InvalidRequestError",
+        ):
+            jl.log_step(
+                step_type="LLM_API_ERROR",
+                title=type(exc).__name__,
+                error=f"{exc}",
+                success=False,
+            )
+            logger.error(
+                "[%s] Job %s failed with LLM provider API error: %s",
+                config.agent.name,
+                jl.job_id,
+                exc,
+            )
+            final_answer = f"ERROR: LLM Provider Issue ({type(exc).__name__}): {exc}"
+            success = False
+
+        # All other unhandled exceptions get the dreaded Traceback log
+        else:
+            jl.log_step(
+                step_type="FATAL_ERROR",
+                title=type(exc).__name__,
+                error=f"{exc}\n\n{tb}",
+                success=False,
+            )
+            logger.exception(
+                "[%s] Job %s failed with unhandled exception: %s", config.agent.name, jl.job_id, exc
+            )
+            final_answer = f"ERROR: {type(exc).__name__}: {exc}"
+            success = False
 
     finally:
         jl.finish(final_answer=final_answer, success=success)

@@ -10,37 +10,38 @@ from __future__ import annotations
 import os
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import List, Optional
 
 import yaml
-
 
 # ---------------------------------------------------------------------------
 # Dataclass models
 # ---------------------------------------------------------------------------
 
+
 @dataclass
 class ModelConfig:
-    provider: str = "ollama"
+    provider: str = "ollama"  # e.g., "ollama", "openai", "gemini"
     model_name: str = "llama3.2"
     temperature: float = 0.0
     base_url: str = "http://localhost:11434"
+    api_key: str | None = None
 
 
 @dataclass
 class MCPClientConfig:
     """Represents one external MCP server this worker connects to as a client."""
+
     name: str
     command: str
-    args: List[str] = field(default_factory=list)
-    env: dict = field(default_factory=dict)   # optional extra env vars
+    args: list[str] = field(default_factory=list)
+    env: dict = field(default_factory=dict)  # optional extra env vars
 
 
 @dataclass
 class ServerConfig:
     name: str = "worker-agent-server"
     port: int = 8001
-    transport: str = "stdio"   # "stdio" | "sse"
+    transport: str = "stdio"  # "stdio" | "sse"
     host: str = "0.0.0.0"
 
 
@@ -52,6 +53,7 @@ DEFAULT_DESCRIPTION = (
     "    The final result produced by the agent after it has finished reasoning\n"
     "    and using its tools. A log file path is appended for traceability."
 )
+
 
 @dataclass
 class AgentConfig:
@@ -65,7 +67,7 @@ class AgentConfig:
 class AppConfig:
     agent: AgentConfig = field(default_factory=AgentConfig)
     model: ModelConfig = field(default_factory=ModelConfig)
-    mcp_clients: List[MCPClientConfig] = field(default_factory=list)
+    mcp_clients: list[MCPClientConfig] = field(default_factory=list)
     server: ServerConfig = field(default_factory=ServerConfig)
 
 
@@ -73,15 +75,16 @@ class AppConfig:
 # Loader
 # ---------------------------------------------------------------------------
 
-def load_config(config_path: Optional[str] = None) -> AppConfig:
+
+def load_config(config_path: str | None = None) -> AppConfig:
     """
-    Priority: 
+    Priority:
     1. config_path (passed to function)
     2. WORKER_AGENT_CONFIG (environment variable)
     3. ./config.yaml (Current Working Directory)
     4. ../config.yaml (Package Root fallback)
     """
-    
+
     # Define potential locations
     env_path = os.getenv("WORKER_AGENT_CONFIG")
     cwd_path = Path.cwd() / "config.yaml"
@@ -110,7 +113,7 @@ def load_config(config_path: Optional[str] = None) -> AppConfig:
 
     print(f"[*] Using config: {final_path.absolute()}")
 
-    with open(final_path, "r", encoding="utf-8") as f:
+    with open(final_path, encoding="utf-8") as f:
         raw = yaml.safe_load(f) or {}
 
     # --- Agent ---
@@ -129,17 +132,20 @@ def load_config(config_path: Optional[str] = None) -> AppConfig:
         model_name=model_raw.get("model_name", "llama3.2"),
         temperature=float(model_raw.get("temperature", 0.0)),
         base_url=model_raw.get("base_url", "http://localhost:11434"),
+        api_key=model_raw.get("api_key", os.getenv("API_KEY")),
     )
 
     # --- MCP Clients ---
     mcp_clients = []
     for entry in raw.get("mcp_clients", []) or []:
-        mcp_clients.append(MCPClientConfig(
-            name=entry["name"],
-            command=entry["command"],
-            args=entry.get("args", []),
-            env=entry.get("env", {}),
-        ))
+        mcp_clients.append(
+            MCPClientConfig(
+                name=entry["name"],
+                command=entry["command"],
+                args=entry.get("args", []),
+                env=entry.get("env", {}),
+            )
+        )
 
     # --- Server ---
     server_raw = raw.get("server", {})
