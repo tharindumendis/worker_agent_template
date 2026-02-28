@@ -41,19 +41,38 @@ Clone the folder, edit `config.yaml`, and you have a brand new specialized agent
 
 ## Quick Start
 
-### 1. Install dependencies
+### 1. Install `uv` (if not already installed)
 
 ```bash
-pip install -r requirements.txt
+# Windows (PowerShell)
+powershell -ExecutionPolicy ByPass -c "irm https://astral.sh/uv/install.ps1 | iex"
+
+# macOS / Linux
+curl -LsSf https://astral.sh/uv/install.sh | sh
 ```
 
-### 2. Configure your agent
+### 2. Install dependencies
+
+```bash
+uv sync
+```
+
+This creates a `.venv` and installs all dependencies from `pyproject.toml` automatically.
+
+For development extras (ruff, mypy, pytest):
+
+```bash
+uv sync --all-extras
+```
+
+### 3. Configure your agent
 
 Edit **`config.yaml`** — the only file you need to touch:
 
 ```yaml
 agent:
   name: "FileMaster"
+  description: "A specialized worker that organizes files and manages directory structures."
   system_prompt: "You are an expert at organizing and refactoring local files."
 
 model:
@@ -70,16 +89,16 @@ server:
   port: 8001
 ```
 
-### 3. Run as a subprocess (stdio) — standard MCP
+### 4. Run as a subprocess (stdio) — standard MCP
 
 ```bash
-python main.py
+uv run worker-agent
 ```
 
-### 4. Run as an HTTP server (SSE) — call it from a browser or remote agent
+### 5. Run as an HTTP server (SSE) — call it from a browser or remote agent
 
 ```bash
-python main.py --transport sse --port 8001
+uv run worker-agent --transport sse --port 8001
 ```
 
 ---
@@ -91,10 +110,15 @@ python main.py --transport sse --port 8001
    cp -r Agent_a Agent_researcher
    ```
 2. Edit only `config.yaml` in the copy:
-   - Change `agent.name`, `agent.system_prompt`
+   - Change `agent.name`, `agent.description`, `agent.system_prompt`
    - Swap out `mcp_clients` for the tools this worker needs
    - Change `server.port` so it doesn't conflict
-3. Run it: `python main.py`
+3. Install & run:
+   ```bash
+   cd Agent_researcher
+   uv sync
+   uv run worker-agent
+   ```
 
 ---
 
@@ -105,6 +129,7 @@ python main.py --transport sse --port 8001
 ```yaml
 agent:
   name: "FileMaster"
+  description: "A specialized worker that organizes files and manages directory structures."
   system_prompt: "You are an expert at organizing and refactoring local files."
 mcp_clients:
   - name: "filesystem-server"
@@ -118,6 +143,7 @@ mcp_clients:
 ```yaml
 agent:
   name: "SearchPro"
+  description: "A research agent to summarize technical documentation found on the web."
   system_prompt: "You specialize in deep web research and summarizing technical docs."
 model:
   model_name: "mistral"
@@ -146,11 +172,17 @@ In your Main Agent's MCP config:
 {
   "mcpServers": {
     "file-worker": {
-      "command": "python",
-      "args": ["D:/DEV/mcp/Agent_a/main.py"]
+      "command": "uv",
+      "args": ["--directory", "D:/DEV/mcp/Agent_a", "run", "worker-agent"]
     }
   }
 }
+```
+
+Or run it directly with `uvx` if the package is published:
+
+```bash
+uvx worker-agent
 ```
 
 The worker exposes one tool:
@@ -167,7 +199,7 @@ The Main Agent calls it like any other MCP tool. The worker handles reasoning, t
 Agent_a/
 ├── config.yaml           ← The only file you edit per clone
 ├── main.py               ← MCP bridge (FastMCP)
-├── requirements.txt
+├── pyproject.toml         ← All deps & build config (hatchling)
 ├── README.md
 └── core/
     ├── __init__.py
@@ -175,17 +207,21 @@ Agent_a/
     └── config_loader.py  ← YAML → typed dataclasses
 ```
 
-# Install in editable / dev mode (recommended while developing)
-pip install -e ".[dev]"
+---
 
-# Run from anywhere after install
-worker-agent
-worker-agent --transport sse --port 8001
+## Development Commands
+
+```bash
+# Install in dev mode with all extras
+uv sync --all-extras
+
+# Run from the project directory
+uv run worker-agent
+uv run worker-agent --transport sse --port 8001
 
 # Build a distributable wheel + sdist
-pip install build
-python -m build
+uv build
 
 # Publish to PyPI
-pip install twine
-twine upload dist/*
+uv publish
+```

@@ -44,11 +44,20 @@ class ServerConfig:
     host: str = "0.0.0.0"
 
 
+DEFAULT_DESCRIPTION = (
+    "Run the Worker Agent's internal ReAct loop to complete a sub-task.\n"
+    "Args:\n"
+    "    instruction: A clear, self-contained description of the task to perform.\n\n"
+    "Returns:\n"
+    "    The final result produced by the agent after it has finished reasoning\n"
+    "    and using its tools. A log file path is appended for traceability."
+)
+
 @dataclass
 class AgentConfig:
     name: str = "WorkerAgent"
     version: str = "1.0.0"
-    description: str = "Run the Worker Agent's internal ReAct loop to complete a sub-task."
+    description: str = DEFAULT_DESCRIPTION
     system_prompt: str = "You are a helpful worker agent."
 
 
@@ -109,7 +118,7 @@ def load_config(config_path: Optional[str] = None) -> AppConfig:
     agent = AgentConfig(
         name=agent_raw.get("name", "WorkerAgent"),
         version=agent_raw.get("version", "1.0.0"),
-        description=agent_raw.get("description", "Run the Worker Agent's internal ReAct loop to complete a sub-task."),
+        description=agent_raw.get("description", DEFAULT_DESCRIPTION),
         system_prompt=agent_raw.get("system_prompt", "You are a helpful worker agent."),
     )
 

@@ -57,14 +57,6 @@ mcp = FastMCP(config.server.name)
 # ---------------------------------------------------------------------------
 @mcp.tool(description=config.agent.description)
 async def execute_task(ctx :Context ,instruction: str) -> str:
-    """
-    Args:
-        instruction: A clear, self-contained description of the task to perform.
-
-    Returns:
-        The final result produced by the agent after it has finished reasoning
-        and using its tools. A log file path is appended for traceability.
-    """
     from core.job_logger import LOGS_DIR
     logger.info("Received task: %s", instruction[:200])
     try:

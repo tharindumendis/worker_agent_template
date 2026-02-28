@@ -1,27 +1,62 @@
 # =============================================================================
 # pyproject.toml — Build system & tool configuration for Worker Agent Template
 # =============================================================================
-# This file declares:
-#   1. The build backend (setuptools) — required by PEP 517/518
-#   2. Ruff linting + formatting rules
-#   3. mypy static type-checking settings
-#   4. pytest settings
+# Uses hatchling as the build backend for uv/uvx compatibility.
+# All metadata and dependencies are declared inline — no setup.py needed.
 # =============================================================================
 
 [build-system]
-requires      = ["setuptools>=68", "wheel"]
-build-backend = "setuptools.build_meta"
+requires      = ["hatchling"]
+build-backend = "hatchling.build"
 
 # ---------------------------------------------------------------------------
-# Project metadata (mirrors setup.py; setuptools reads EITHER place)
-# This section is intentionally light — setup.py remains the single source
-# of truth for version and dependency lists so they stay DRY.
+# Project metadata
 # ---------------------------------------------------------------------------
 [project]
 name            = "worker-agent"
+version         = "1.0.0"
+description     = "A config-driven, plug-and-play worker agent template built on LangGraph + FastMCP."
+readme          = "README.md"
+license         = "MIT"
 requires-python = ">=3.10"
-dynamic         = ["version", "description", "readme", "license", "authors",
-                   "keywords", "classifiers", "dependencies"]
+authors         = [{ name = "Tharindumendis" }]
+keywords        = [
+    "agent", "worker-agent", "langgraph", "langchain",
+    "mcp", "fastmcp", "ollama", "llm", "react-agent", "autonomous-agent",
+]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Developers",
+    "Intended Audience :: Science/Research",
+    "Topic :: Scientific/Engineering :: Artificial Intelligence",
+    "Topic :: Software Development :: Libraries :: Application Frameworks",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3 :: Only",
+    "Operating System :: OS Independent",
+    "Typing :: Typed",
+]
+
+dependencies = [
+    # Core LangChain + LangGraph
+    "langchain>=0.3.0",
+    "langchain-core>=0.3.0",
+    "langchain-ollama>=0.2.0",
+    "langchain-community>=0.3.0",
+    "langgraph>=0.2.0",
+    # MCP SDK (server + client)
+    "mcp>=1.0.0",
+    "fastmcp>=0.4.0",
+    # LangChain → MCP tool adapter
+    "langchain-mcp-adapters>=0.1.0",
+    # Config / utilities
+    "pyyaml>=6.0",
+    "python-dotenv>=1.0.0",
+    "mcp_server_shell>=0.1.0",
+]
 
 # Console script installed into the venv's Scripts/ directory
 [project.scripts]
@@ -43,6 +78,30 @@ release = [
     "twine>=5.0",
 ]
 
+[project.urls]
+Source        = "https://github.com/tharindumendis/worker_agent_template"
+"Bug Tracker" = "https://github.com/tharindumendis/worker_agent_template/issues"
+Documentation = "https://github.com/tharindumendis/worker_agent_template#readme"
+
+# ---------------------------------------------------------------------------
+# Hatch build config
+# ---------------------------------------------------------------------------
+[tool.hatch.build.targets.wheel]
+packages = ["core"]
+# Include root-level modules needed for the CLI entry point
+extra-files = ["main.py", "sample_main_agent.py", "config.yaml", "py.typed"]
+
+[tool.hatch.build.targets.sdist]
+include = [
+    "core/",
+    "main.py",
+    "sample_main_agent.py",
+    "config.yaml",
+    "py.typed",
+    "README.md",
+    "LICENSE",
+    "pyproject.toml",
+]
 
 # ---------------------------------------------------------------------------
 # Ruff — linting + formatting (replaces flake8, isort, pyupgrade, etc.)
@@ -51,12 +110,6 @@ release = [
 target-version = "py310"
 line-length    = 100
 src            = [".", "core"]
-
-[tool.setuptools]
-include-package-data = true
-
-[tool.setuptools.package-data]
-"*" = ["*.yaml", "*.yml"]
 
 [tool.ruff.lint]
 select = [
@@ -93,7 +146,7 @@ warn_return_any         = true
 warn_unused_configs     = true
 warn_unused_ignores     = true
 disallow_untyped_defs   = true
-ignore_missing_imports  = true   # many MCP/LangChain stubs are incomplete
+ignore_missing_imports  = true
 exclude                 = ["^\\.venv/", "^build/", "^dist/"]
 
 [[tool.mypy.overrides]]
@@ -104,7 +157,7 @@ ignore_missing_imports = true
 # pytest
 # ---------------------------------------------------------------------------
 [tool.pytest.ini_options]
-asyncio_mode     = "auto"          # pytest-asyncio: all async tests auto
+asyncio_mode     = "auto"
 testpaths        = ["tests"]
 addopts          = "-v --tb=short"
 log_cli          = true
