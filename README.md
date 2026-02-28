@@ -252,9 +252,3 @@ uv sync --all-extras
 uv run worker-agent
 uv run worker-agent --transport sse --port 8001
 
-# Build a distributable wheel + sdist
-uv build
-
-# Publish to PyPI
-uv publish
-```
