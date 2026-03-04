@@ -3,8 +3,9 @@ main.py — The MCP Bridge
 ------------------------
 Wraps the Worker Agent as an MCP server.
 
-The outer "Main Agent" (or any MCP client) calls:
-    execute_task(instruction="...")
+The outer "Main Agent" (or any MCP client) calls the tool that corresponds to the
+Worker Agent's name. For example, if `agent.name: "CodeWorker"`, the tool is:
+    execute_codeworker_task(instruction="...")
 
 This triggers the internal LangGraph ReAct loop, which:
   - connects to the MCP tool servers configured in config.yaml
@@ -53,7 +54,7 @@ mcp = FastMCP(config.server.name)
 
 
 # ---------------------------------------------------------------------------
-# Tool: execute_task
+# Tool: execute_task (Dynamic logic based on Agent Name)
 # ---------------------------------------------------------------------------
 EXECUTE_TASK_DESC = f"""{config.agent.description}
 
@@ -64,7 +65,11 @@ Returns:
     The final result produced by the agent.
 """
 
-@mcp.tool(description=EXECUTE_TASK_DESC)
+import re
+_safe_agent_name = re.sub(r'[^a-zA-Z0-9_-]+', '_', config.agent.name).strip('_').lower()
+EXECUTE_TASK_NAME = f"execute_{_safe_agent_name}_task"
+
+@mcp.tool(name=EXECUTE_TASK_NAME, description=EXECUTE_TASK_DESC)
 async def execute_task(ctx :Context ,instruction: str) -> str:
     from core.job_logger import LOGS_DIR
     logger.info("Received task: %s", instruction[:200])

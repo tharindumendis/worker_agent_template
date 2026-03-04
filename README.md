@@ -218,11 +218,11 @@ WORKER_AGENT_CONFIG="./custom_config.yaml" uvx worker-agent
 $env:WORKER_AGENT_CONFIG="./custom_config.yaml"; uvx worker-agent
 ```
 
-The worker exposes one tool:
+The worker exposes one dynamically named tool based on the agent's configured `name` (e.g., if the name is "SearchPro", the tool will be `execute_searchpro_task`):
 
-- **`execute_task(instruction: str) → str`**
+- **`execute_<agent_name>_task(instruction: str) → str`**
 
-The Main Agent calls it like any other MCP tool. The worker handles reasoning, tool use, and error recovery internally, returning only the final result.
+This dynamic naming prevents tool collisions when the Main Agent orchestrates multiple specialized workers simultaneously. The Main Agent calls it like any other MCP tool. The worker handles reasoning, tool use, and error recovery internally, returning only the final result.
 
 ---
 
@@ -252,3 +252,4 @@ uv sync --all-extras
 uv run worker-agent
 uv run worker-agent --transport sse --port 8001
 
+```
