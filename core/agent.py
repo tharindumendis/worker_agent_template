@@ -46,6 +46,7 @@ from mcp.client.stdio import stdio_client
 
 from core.config_loader import AppConfig
 from core.job_logger import JobLogger
+from core.llm import get_llm
 
 logger = logging.getLogger(__name__)
 
@@ -166,29 +167,7 @@ async def run_agent(task: str, config: AppConfig) -> str:
                 f"\n\nAvailable tools:\n{tool_descriptions}" if tool_descriptions else ""
             )
 
-            provider = config.model.provider.lower()
-            if provider == "openai":
-                llm = ChatOpenAI(
-                    model=config.model.model_name,
-                    temperature=config.model.temperature,
-                    api_key=config.model.api_key,
-                    base_url=config.model.base_url
-                    if config.model.base_url != "http://localhost:11434"
-                    else None,
-                )
-            elif provider == "gemini":
-                llm = ChatGoogleGenerativeAI(
-                    model=config.model.model_name,
-                    temperature=config.model.temperature,
-                    api_key=config.model.api_key,
-                )
-            else:
-                # default to ollama
-                llm = ChatOllama(
-                    model=config.model.model_name,
-                    temperature=config.model.temperature,
-                    base_url=config.model.base_url,
-                )
+            llm = get_llm(config.model)
             graph = create_react_agent(model=llm, tools=all_tools)
 
             jl.log_step(

@@ -14,7 +14,7 @@ build-backend = "hatchling.build"
 # ---------------------------------------------------------------------------
 [project]
 name            = "worker-agent"
-version         = "1.0.5"
+version         = "1.0.6"
 description     = "A config-driven, plug-and-play worker agent template built on LangGraph + FastMCP."
 readme          = "README.md"
 license         = "MIT"
