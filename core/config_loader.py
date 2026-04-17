@@ -20,11 +20,14 @@ import yaml
 
 @dataclass
 class ModelConfig:
-    provider: str = "ollama"  # e.g., "ollama", "openai", "gemini"
+    provider: str = "ollama"  # e.g., "ollama", "openai", "gemini", "anthropic", "bedrock"
     model_name: str = "llama3.2"
     temperature: float = 0.0
     base_url: str = "http://localhost:11434"
     api_key: str | None = None
+    aws_access_key_id: str | None = None
+    aws_secret_access_key: str | None = None
+    aws_region: str | None = None
 
 
 @dataclass
@@ -133,6 +136,9 @@ def load_config(config_path: str | None = None) -> AppConfig:
         temperature=float(model_raw.get("temperature", 0.0)),
         base_url=model_raw.get("base_url", "http://localhost:11434"),
         api_key=model_raw.get("api_key", os.getenv("API_KEY")),
+        aws_access_key_id=model_raw.get("aws_access_key_id"),
+        aws_secret_access_key=model_raw.get("aws_secret_access_key"),
+        aws_region=model_raw.get("aws_region"),
     )
 
     # --- MCP Clients ---

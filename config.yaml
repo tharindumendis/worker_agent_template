@@ -23,11 +23,14 @@ agent:
     Do NOT ask for clarification — make your best effort with the information provided.
 
 model:
-  provider: "ollama" # Supported: "ollama", "openai", "gemini"
+  provider: "ollama" # Supported: "ollama", "openai", "gemini", "anthropic", "bedrock"
   model_name: "qwen3-coder:480b-cloud"
   temperature: 0.0
   base_url: "http://localhost:11434" #https://ollama.com # Uncomment if using openai or gemini (or set API_KEY env var) https://api.openai.com/v1 ollma local (http://localhost:11434)
   # api_key: "your-api-key-here" # Uncomment if using openai or gemini (or set API_KEY env var)
+  aws_access_key_id: ""
+  aws_secret_access_key: ""
+  aws_region: "us-east-1"
 
 # MCP Servers this worker connects TO as a CLIENT to get its tools.
 # Each entry starts a subprocess and connects via stdio.
