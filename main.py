@@ -45,7 +45,11 @@ logger = logging.getLogger(__name__)
 # ---------------------------------------------------------------------------
 # Load config once at startup
 # ---------------------------------------------------------------------------
-config = load_config()
+_parser = argparse.ArgumentParser(add_help=False)
+_parser.add_argument("--config", type=str)
+_args, _ = _parser.parse_known_args()
+
+config = load_config(_args.config)
 
 # ---------------------------------------------------------------------------
 # FastMCP server setup
@@ -89,6 +93,11 @@ async def execute_task(ctx :Context ,instruction: str) -> str:
 # ---------------------------------------------------------------------------
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description=f"Worker Agent MCP Server — {config.agent.name}")
+    parser.add_argument(
+        "--config",
+        type=str,
+        help="Path to the config.yaml file to use",
+    )
     parser.add_argument(
         "--transport",
         choices=["stdio", "sse"],

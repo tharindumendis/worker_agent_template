@@ -39,10 +39,8 @@ try:
     from langchain_google_genai import ChatGoogleGenerativeAI
 except ImportError:
     pass
-from langchain_mcp_adapters.tools import load_mcp_tools
-from langgraph.prebuilt import create_react_agent
-from mcp import ClientSession, StdioServerParameters
-from mcp.client.stdio import stdio_client
+from core.mcp_loader import load_mcp_server_tools
+from langgraph.prebuilt import create_react_agent, ToolNode
 
 from core.config_loader import AppConfig
 from core.job_logger import JobLogger
@@ -75,6 +73,30 @@ def _unwrap_exception(exc: BaseException) -> BaseException:
         # This assumes the most interesting error is the first one (often true for simple TaskGroups).
         return _unwrap_exception(exc.exceptions[0])
     return exc
+
+
+class SafeToolNode(ToolNode):
+    """Wraps ToolNode to catch exceptions (like Pydantic ValidationError) so the ReAct loop doesn't crash."""
+
+    async def ainvoke(self, input, config=None, **kwargs):
+        try:
+            return await super().ainvoke(input, config, **kwargs)
+        except Exception as e:
+            logger.error("Tool execution caught exception: %s", e)
+            messages = input.get("messages", []) if isinstance(input, dict) else input
+            if messages and isinstance(messages[-1], AIMessage) and getattr(messages[-1], "tool_calls", None):
+                tool_calls = messages[-1].tool_calls
+                return {
+                    "messages": [
+                        ToolMessage(
+                            content=f"Error executing tool: {repr(e)}\nPlease correct your input and try again.",
+                            name=tc["name"],
+                            tool_call_id=tc["id"],
+                        )
+                        for tc in tool_calls
+                    ]
+                }
+            raise e
 
 
 # ---------------------------------------------------------------------------
@@ -110,18 +132,16 @@ async def run_agent(task: str, config: AppConfig) -> str:
         # ----------------------------------------------------------------
         async with AsyncExitStack() as stack:
             for client_cfg in config.mcp_clients:
-                server_params = StdioServerParameters(
-                    command=client_cfg.command,
-                    args=client_cfg.args,
-                    env=client_cfg.env or None,
-                )
                 try:
-                    read, write = await stack.enter_async_context(stdio_client(server_params))
-                    session: ClientSession = await stack.enter_async_context(
-                        ClientSession(read, write)
+                    tools = await load_mcp_server_tools(
+                        stack=stack,
+                        command=client_cfg.command,
+                        args=client_cfg.args,
+                        env=client_cfg.env or None,
+                        transport=client_cfg.transport,
+                        url=client_cfg.url,
+                        headers=client_cfg.headers,
                     )
-                    await session.initialize()
-                    tools = await load_mcp_tools(session)
                     tool_names = [t.name for t in tools]
                     all_tools.extend(tools)
 
@@ -129,8 +149,10 @@ async def run_agent(task: str, config: AppConfig) -> str:
                         step_type="MCP_CONNECT",
                         title=client_cfg.name,
                         details={
+                            "transport": client_cfg.transport,
                             "command": client_cfg.command,
                             "args": client_cfg.args,
+                            "url": client_cfg.url,
                             "tools_loaded": tool_names,
                         },
                         success=True,
@@ -142,7 +164,12 @@ async def run_agent(task: str, config: AppConfig) -> str:
                     jl.log_step(
                         step_type="MCP_CONNECT",
                         title=client_cfg.name,
-                        details={"command": client_cfg.command, "args": client_cfg.args},
+                        details={
+                            "transport": client_cfg.transport,
+                            "command": client_cfg.command,
+                            "args": client_cfg.args,
+                            "url": client_cfg.url,
+                        },
                         error=f"{exc}\n{tb}",
                         success=False,
                     )
@@ -168,7 +195,7 @@ async def run_agent(task: str, config: AppConfig) -> str:
             )
 
             llm = get_llm(config.model)
-            graph = create_react_agent(model=llm, tools=all_tools)
+            graph = create_react_agent(model=llm, tools=SafeToolNode(all_tools))
 
             jl.log_step(
                 step_type="AGENT_INIT",

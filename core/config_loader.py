@@ -35,7 +35,10 @@ class MCPClientConfig:
     """Represents one external MCP server this worker connects to as a client."""
 
     name: str
-    command: str
+    transport: str = "stdio"
+    url: str | None = None
+    headers: dict = field(default_factory=dict)
+    command: str = ""
     args: list[str] = field(default_factory=list)
     env: dict = field(default_factory=dict)  # optional extra env vars
 
@@ -144,10 +147,14 @@ def load_config(config_path: str | None = None) -> AppConfig:
     # --- MCP Clients ---
     mcp_clients = []
     for entry in raw.get("mcp_clients", []) or []:
+        transport = entry.get("transport", "stdio")
         mcp_clients.append(
             MCPClientConfig(
                 name=entry["name"],
-                command=entry["command"],
+                transport=transport,
+                url=entry.get("url"),
+                headers=entry.get("headers", {}),
+                command=entry.get("command", ""),
                 args=entry.get("args", []),
                 env=entry.get("env", {}),
             )

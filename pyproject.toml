@@ -14,7 +14,7 @@ build-backend = "hatchling.build"
 # ---------------------------------------------------------------------------
 [project]
 name            = "worker-agent"
-version         = "1.0.6"
+version         = "1.0.8"
 description     = "A config-driven, plug-and-play worker agent template built on LangGraph + FastMCP."
 readme          = "README.md"
 license         = "MIT"
@@ -48,6 +48,8 @@ dependencies = [
     "langchain-openai>=0.1.0",
     "langchain-google-genai>=1.0.0",
     "langchain-community>=0.3.0",
+    "langchain-anthropic>=0.3.0",
+    "langchain-aws>=0.2.0",
     "langgraph>=0.2.0",
     # MCP SDK (server + client)
     "mcp>=1.0.0",
